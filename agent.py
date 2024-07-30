@@ -10,7 +10,7 @@ from game import Game
 from model import Linear_QNet, QTrainer
 
 MAX_MEMORY = 100_000
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 LR = 0.0001
 BLOCK_WIDTH = 40
 
@@ -20,7 +20,7 @@ class Agent:
         self.epsilon = 1.0  # exploration rate
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.01
-        self.gamma = 0.99  # discount rate
+        self.gamma = 0.95  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(12, 512, 4)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
@@ -145,7 +145,7 @@ def train():
         final_move = agent.get_action(state_old)
 
         # perform move and get the new state
-        reward, done, move = game.run_step(final_move)
+        reward, done = game.run_step(final_move)
         state_new = agent.get_state(game)
 
         # remember
@@ -160,9 +160,6 @@ def train():
             agent.episodes += 1
             if agent.epsilon > agent.epsilon_min:
                 agent.epsilon *= agent.epsilon_decay
-
-            if move > agent.record:
-                agent.record = move
 
             agent.model.save()
 

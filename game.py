@@ -59,7 +59,7 @@ class Game:
 
         # Define fire pits as a list of tuples (row, col)
         # self.fire_pits = [(2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16), (16, 18), (17, 15)]
-        self.fire_pits = [(2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16)]
+        self.fire_pits = [(2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14)]
 
         self.flags = [(2, 9), (8, 5), (15, 1), (19, 7), (13, 10), (17, 17)]
 
@@ -84,8 +84,8 @@ class Game:
         self.game_over = False
         self.reward = 0
         self.record = 0
-        self.max_moves = 1000
-        self.position_history = deque(maxlen=3)
+        self.max_moves = 500
+        self.position_history = deque(maxlen=2)
         self.wait = 0.008
         self.message = ''
 
@@ -126,9 +126,9 @@ class Game:
         screen.blit(self.destination, (self.end_pos[0] * GRID_SIZE, self.end_pos[1] * GRID_SIZE))
         # pygame.draw.rect(screen, GREEN, pygame.Rect(self.end_pos[1] * GRID_SIZE, self.end_pos[0] * GRID_SIZE, GRID_SIZE, GRID_SIZE))
 
-        # Draw Flags
-        for flag in self.flags:
-            screen.blit(self.flag_img, (flag[0] * GRID_SIZE, flag[1] * GRID_SIZE))
+        # # Draw Flags
+        # for flag in self.flags:
+        #     screen.blit(self.flag_img, (flag[0] * GRID_SIZE, flag[1] * GRID_SIZE))
 
         # Draw the robot
         screen.blit(self.robot_img, (self.robot_pos[0] * GRID_SIZE, self.robot_pos[1] * GRID_SIZE))
@@ -152,9 +152,9 @@ class Game:
             self.reward = -10
             self.game_over = True
 
-        # Award for getting to reach flags
-        if tuple(self.robot_pos) in self.flags:
-            self.reward = 5
+        # # Award for getting to reach flags
+        # if tuple(self.robot_pos) in self.flags:
+        #     self.reward = 2
 
         if self.moves > self.max_moves:
             self.reward = -5
@@ -163,9 +163,9 @@ class Game:
 
         # Check for repetition by tracking positions
         if (self.robot_pos[0], self.robot_pos[1]) in self.position_history:
-            self.reward = -1
-        self.position_history.append((self.robot_pos[0], self.robot_pos[1]))
 
+            self.reward = -2
+        self.position_history.append((self.robot_pos[0], self.robot_pos[1]))
 
     def run_step(self, action):
 
@@ -190,7 +190,6 @@ class Game:
 
         # Check if the new position is within the maze bounds and not a wall
         if 0 <= new_pos[0] < self.ROWS and 0 <= new_pos[1] < self.COLS and self.maze[new_pos[0]][new_pos[1]] == '0':
-            # print("new pos", new_pos, " direction: " , direction)
             self.robot_pos = new_pos
         else:
             # negative reward for hitting the wall
@@ -202,15 +201,15 @@ class Game:
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
-                    self.wait -= 0.0005
-                    print("speed increased: " +str(self.wait))
+                    if self.wait > 0.001:
+                        self.wait -= 0.001
+                        print("speed increased: " + str(self.wait))
                 elif event.key == pygame.K_DOWN:
-                    self.wait += 0.0005
+                    self.wait += 0.001
                     print("speed DECREASE: " + str(self.wait))
             # if event.type == self.SCREEN_UPDATE:
         self.move()
         self.display_objects()
         pygame.display.flip()
 
-        return self.reward, self.game_over, self.moves
-
+        return self.reward, self.game_over
