@@ -126,7 +126,7 @@ class Game:
         screen.blit(self.destination, (self.end_pos[0] * GRID_SIZE, self.end_pos[1] * GRID_SIZE))
         # pygame.draw.rect(screen, GREEN, pygame.Rect(self.end_pos[1] * GRID_SIZE, self.end_pos[0] * GRID_SIZE, GRID_SIZE, GRID_SIZE))
 
-        # # Draw Flags
+        # Draw Flags
         # for flag in self.flags:
         #     screen.blit(self.flag_img, (flag[0] * GRID_SIZE, flag[1] * GRID_SIZE))
 
@@ -156,16 +156,16 @@ class Game:
         # if tuple(self.robot_pos) in self.flags:
         #     self.reward = 2
 
-        if self.moves > self.max_moves:
-            self.reward = -5
-            self.game_over = True
-            print("Just Roaming around, Game over")
+        # if self.moves > self.max_moves:
+        #     self.reward = -1
+        #     self.game_over = True
+        #     print("Just Roaming around, Game over")
 
         # Check for repetition by tracking positions
-        if (self.robot_pos[0], self.robot_pos[1]) in self.position_history:
-
-            self.reward = -2
-        self.position_history.append((self.robot_pos[0], self.robot_pos[1]))
+        # if (self.robot_pos[0], self.robot_pos[1]) in self.position_history:
+        #
+        #     self.reward = -0.5
+        # self.position_history.append((self.robot_pos[0], self.robot_pos[1]))
 
     def run_step(self, action):
 

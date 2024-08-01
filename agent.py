@@ -9,21 +9,24 @@ import torch
 from game import Game
 from model import Linear_QNet, QTrainer
 
-MAX_MEMORY = 100_000
+MAX_MEMORY = 150_000
+LEARNING_STARTS = 50000
 BATCH_SIZE = 64
-LR = 0.0001
+LR = 0.001
 BLOCK_WIDTH = 40
-
+TARGET_UPDATE_INTERVAL = 4000
 
 class Agent:
     def __init__(self, ROWS, COLS):
         self.epsilon = 1.0  # exploration rate
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.01
-        self.gamma = 0.95  # discount rate
+        self.gamma = 0.99  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(12, 512, 4)
-        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+        self.target_model = Linear_QNet(12, 512, 4)
+
+        self.trainer = QTrainer(self.model, self.target_model, LR, self.gamma)
         self.data_file = 'data.json'
         self.record = 0
         self.avg_last_100_episodes = 0
@@ -86,14 +89,14 @@ class Agent:
         self.memory.append((state, action, reward, next_state, done))
 
     def train_memory(self):
-        if len(self.memory) < BATCH_SIZE:
-            return
-        if len(self.memory) > BATCH_SIZE:
+        if len(self.memory) > LEARNING_STARTS:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
-        else:
-            mini_sample = self.memory
-        for state, action, reward, next_state, done in mini_sample:
-            self.trainer.train_step(state, action, reward, next_state, done)
+            if len(self.memory) < LEARNING_STARTS+500:
+                print("learning starts")
+            states, actions, rewards, next_states, dones = zip(*mini_sample)
+            self.trainer.train_step(states, actions, rewards, next_states, dones)
+            # for state, action, reward, next_state, done in mini_sample:
+            #     self.trainer.train_step(state, action, reward, next_state, done)
 
     def get_action(self, state):
         # random moves: trade off exploration / exploitation
@@ -152,13 +155,19 @@ def train():
         agent.remember(state_old, final_move, reward, state_new, done)
 
         # train after every 4 steps
-        agent.t_step = (agent.t_step + 1) % 4
-        if agent.t_step == 0:
+        if agent.t_step % 4 == 0:
             agent.train_memory()
+
+        # update target model
+        agent.t_step = (agent.t_step + 1) % 5000
+        if agent.t_step == 0:
+            print("updating target model")
+            print(agent.epsilon)
+            agent.target_model.load_state_dict(agent.model.state_dict())
 
         if done:
             agent.episodes += 1
-            if agent.epsilon > agent.epsilon_min:
+            if len(agent.memory) > LEARNING_STARTS and agent.epsilon > agent.epsilon_min:
                 agent.epsilon *= agent.epsilon_decay
 
             agent.model.save()
