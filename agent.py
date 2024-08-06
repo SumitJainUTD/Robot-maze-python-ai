@@ -10,22 +10,21 @@ from game import Game
 from model import Linear_QNet, QTrainer
 
 MAX_MEMORY = 150_000
-LEARNING_STARTS = 50000
 BATCH_SIZE = 64
 LR = 0.001
 BLOCK_WIDTH = 40
 TARGET_UPDATE_INTERVAL = 4000
 
+
 class Agent:
     def __init__(self, ROWS, COLS):
         self.epsilon = 1.0  # exploration rate
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.95
         self.epsilon_min = 0.01
         self.gamma = 0.99  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = Linear_QNet(12, 512, 4)
-        self.target_model = Linear_QNet(12, 512, 4)
-
+        self.model = Linear_QNet(12, 256, 4)
+        self.target_model = Linear_QNet(12, 256, 4)
         self.trainer = QTrainer(self.model, self.target_model, LR, self.gamma)
         self.data_file = 'data.json'
         self.record = 0
@@ -34,23 +33,23 @@ class Agent:
         self.model_folder_path = './model'
         self.t_step = 0
         self.episodes = 0
-
+        self.LEARNING_STARTS_IN = 40000
         self.ROWS = ROWS
         self.COLS = COLS
 
     def get_state(self, game):
 
-        x = game.robot_pos[0]
-        y = game.robot_pos[1]
+        robot_x = game.robot_pos[0]
+        robot_y = game.robot_pos[1]
 
         maze = game.maze
 
         fire_pits = game.fire_pits
 
-        point_left = [(x - 1), y]
-        point_right = [x + 1, y]
-        point_up = [x, y - 1]
-        point_down = [x, y + 1]
+        point_left = [(robot_x - 1), robot_y]
+        point_right = [robot_x + 1, robot_y]
+        point_up = [robot_x, robot_y - 1]
+        point_down = [robot_x, robot_y + 1]
 
         # [wall up, wall right, wall down, wall left,
         #  fire up, fire right, fire down, fire left,
@@ -67,10 +66,15 @@ class Agent:
             (tuple(point_down) in fire_pits),
             (tuple(point_left) in fire_pits),
 
-            (point_up == game.end_pos),
-            (point_right == game.end_pos),
-            (point_down == game.end_pos),
-            (point_left == game.end_pos),
+            # (point_up == game.end_pos),
+            # (point_right == game.end_pos),
+            # (point_down == game.end_pos),
+            # (point_left == game.end_pos),
+
+            robot_x < game.end_pos[0],  # target right
+            robot_x > game.end_pos[0],  # target left
+            robot_y < game.end_pos[1],  # target down
+            robot_y > game.end_pos[1]  # target up
 
         ]
 
@@ -87,16 +91,15 @@ class Agent:
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
+        if self.LEARNING_STARTS_IN >= 0:
+            self.LEARNING_STARTS_IN -= 1
 
     def train_memory(self):
-        if len(self.memory) > LEARNING_STARTS:
+        if len(self.memory) > BATCH_SIZE and self.LEARNING_STARTS_IN <= 0:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
-            if len(self.memory) < LEARNING_STARTS+500:
-                print("learning starts")
-            states, actions, rewards, next_states, dones = zip(*mini_sample)
-            self.trainer.train_step(states, actions, rewards, next_states, dones)
-            # for state, action, reward, next_state, done in mini_sample:
-            #     self.trainer.train_step(state, action, reward, next_state, done)
+
+            for state, action, reward, next_state, done in mini_sample:
+                self.trainer.train_step(state, action, reward, next_state, done)
 
     def get_action(self, state):
         # random moves: trade off exploration / exploitation
@@ -112,13 +115,13 @@ class Agent:
 
         return final_move
 
-    def save_data(self, n_games, record, epsilon, file_name='data.json'):
+    def save_data(self, n_games, epsilon, file_name='data.json'):
 
         if not os.path.exists(self.model_folder_path):
             os.makedirs(self.model_folder_path)
         complete_path = os.path.join(self.model_folder_path, file_name)
 
-        data = {'episodes': n_games, 'record': record, 'epsilon': epsilon}
+        data = {'episodes': n_games, 'epsilon': epsilon, 'learning_starts_in': self.LEARNING_STARTS_IN}
         with open(complete_path, 'w') as file:
             json.dump(data, file, indent=4)
 
@@ -130,17 +133,18 @@ class Agent:
 
             if data is not None:
                 self.episodes = data['episodes']
-                self.record = data['record']
                 self.epsilon = data['epsilon']
+                self.LEARNING_STARTS_IN = data['learning_starts_in']
 
 
 def train():
     game = Game()
     agent = Agent(game.ROWS, game.COLS)
     agent.load()
+    status = deque(maxlen=100)
 
     while True:
-        time.sleep(game.wait)
+        time.sleep(0.0008)
         # get old state
         state_old = agent.get_state(game)
 
@@ -167,16 +171,27 @@ def train():
 
         if done:
             agent.episodes += 1
-            if len(agent.memory) > LEARNING_STARTS and agent.epsilon > agent.epsilon_min:
+            if len(agent.memory) > agent.LEARNING_STARTS_IN and agent.epsilon > agent.epsilon_min:
                 agent.epsilon *= agent.epsilon_decay
+
+            if agent.LEARNING_STARTS_IN == 0:
+                print("learning started, Episodes will reset")
 
             agent.model.save()
 
-            game.message = "Episodes: " + str(agent.episodes)
+            status.append(game.outcome)
 
-            game.record = agent.record
-            agent.save_data(agent.episodes, agent.record, agent.epsilon)
+            wins = sum(status)
+            loses = len(status) - wins
+
+            game.message = "Episodes: " + str(agent.episodes) + \
+                            "       Wins/Loses:  " + str(wins) \
+                            + "/" + str(loses) + "" \
+                                                 " (Last 100)"
+            print(game.message + " epsilon: " + str(agent.epsilon))
+            agent.save_data(agent.episodes, agent.epsilon)
             game.reset()
+
 
 if __name__ == '__main__':
     train()

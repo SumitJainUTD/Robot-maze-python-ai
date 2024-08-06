@@ -1,5 +1,5 @@
 {
-    "episodes": 1129,
-    "record": 0,
-    "epsilon": 0.028186002814352063
+    "episodes": 746,
+    "epsilon": 0.07694497527671314,
+    "learning_starts_in": -1
 }

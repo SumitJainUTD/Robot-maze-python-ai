@@ -7,7 +7,7 @@ import sys
 pygame.init()
 
 # Screen dimensions
-WIDTH, HEIGHT = 800, 800
+WIDTH, HEIGHT = 600, 600
 GRID_SIZE = 40
 
 # Colors
@@ -35,38 +35,32 @@ class Game:
 
         # Define the maze as a list of strings with correct dimensions
         self.maze = [
-            "11111111111111111111",
-            "10000000000000000001",
-            "10110111101111111101",
-            "10000000100000000001",
-            "10111100101111110101",
-            "10100000100000100001",
-            "10101111001110101111",
-            "10001000000010100001",
-            "11101011100110111101",
-            "10000010000000000001",
-            "10111111101101111101",
-            "10100000100000000001",
-            "10101110101110010101",
-            "10000010100000100001",
-            "10111110111110100111",
-            "10000000000010100001",
-            "11111110111110111101",
-            "10000000100000000001",
-            "10111110101111111101",
-            "10000000000000000001"
+            "111111111111111",
+            "100000000000001",
+            "101101111011101",
+            "100000001000001",
+            "101111000011101",
+            "101000001000001",
+            "101011110011101",
+            "100010000000101",
+            "111010111001101",
+            "100000100000001",
+            "101111111011011",
+            "101000001000001",
+            "101011101011101",
+            "100000101000001",
+            "100000000000000"
         ]
 
         # Define fire pits as a list of tuples (row, col)
-        # self.fire_pits = [(2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16), (16, 18), (17, 15)]
-        self.fire_pits = [(2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14)]
+        self.fire_pits = [(2, 4), (4, 6), (6, 8), (8, 10), (10, 12)]
 
-        self.flags = [(2, 9), (8, 5), (15, 1), (19, 7), (13, 10), (17, 17)]
+        self.flags = [(2, 9), (8, 5), (15, 1), (19, 7), (13, 10)]
 
         # Robot starting position
         self.robot_pos = [1, 1]
         # End position
-        self.end_pos = [18, 18]
+        self.end_pos = [14, 14]
 
         robot = pygame.image.load("resources/robot.jpg")
         self.robot_img = pygame.transform.scale(robot, (GRID_SIZE, GRID_SIZE))
@@ -83,28 +77,30 @@ class Game:
         self.moves = 0
         self.game_over = False
         self.reward = 0
-        self.record = 0
         self.max_moves = 500
         self.position_history = deque(maxlen=2)
         self.wait = 0.008
         self.message = ''
+        self.outcome = 0  # 1 for win and 0 for lose
 
     def reset(self):
         self.moves = 0
         self.robot_pos = [1, 1]
         self.game_over = False
         self.reward = 0
+        self.outcome = 0  # 1 for win and 0 for lose
 
     def display_moves(self):
-        font = pygame.font.SysFont('arial', 20)
-        move_msg = "Moves: " + str(self.moves)
-        score = font.render(f"{move_msg}", True, (200, 200, 200))
-        screen.blit(score, (100, 10))
+        pass
+        # font = pygame.font.SysFont('arial', 20)
+        # move_msg = "Moves: " + str(self.moves)
+        # score = font.render(f"{move_msg}", True, (200, 200, 200))
+        # screen.blit(score, (100, 10))
 
     def display_episodes(self):
         font = pygame.font.SysFont('arial', 20)
         score = font.render(f"{self.message}", True, (200, 200, 200))
-        screen.blit(score, (300, 10))
+        screen.blit(score, (100, 10))
 
     def display_objects(self):
         # Draw the self.maze
@@ -137,20 +133,21 @@ class Game:
         self.display_episodes()
 
     def move(self):
-        self.moves += 1
-        self.reward = 0
+        self.reward = -0.5
 
         # Check for win condition
         if self.robot_pos == self.end_pos:
-            print("You win!")
+            # print("You win!")
             self.reward = 50
             self.game_over = True
+            self.outcome = 1  # win
 
         # Check if robot stepped on a fire pit
         if tuple(self.robot_pos) in self.fire_pits:
-            print("You stepped on a fire pit! Game over!")
+            # print("You stepped on a fire pit! Game over!")
             self.reward = -10
             self.game_over = True
+            self.outcome = 0  # lose
 
         # # Award for getting to reach flags
         # if tuple(self.robot_pos) in self.flags:
@@ -191,9 +188,11 @@ class Game:
         # Check if the new position is within the maze bounds and not a wall
         if 0 <= new_pos[0] < self.ROWS and 0 <= new_pos[1] < self.COLS and self.maze[new_pos[0]][new_pos[1]] == '0':
             self.robot_pos = new_pos
+            self.moves += 1
         else:
             # negative reward for hitting the wall
             self.reward = -1
+            return self.reward, self.game_over
             # print("WALL")
 
         for event in pygame.event.get():
@@ -207,7 +206,6 @@ class Game:
                 elif event.key == pygame.K_DOWN:
                     self.wait += 0.001
                     print("speed DECREASE: " + str(self.wait))
-            # if event.type == self.SCREEN_UPDATE:
         self.move()
         self.display_objects()
         pygame.display.flip()
